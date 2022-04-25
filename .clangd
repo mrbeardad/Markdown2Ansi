@@ -1,0 +1,6 @@
+CompileFlags:
+  CompilationDatabase: build
+Completion:
+  AllScopes: yes
+Hover:
+  ShowAKA: yes
