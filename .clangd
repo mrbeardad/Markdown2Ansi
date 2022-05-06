@@ -1,6 +1,13 @@
 CompileFlags:
+  Add: [-Wall, -Wextra]
   CompilationDatabase: build
+Diagnostics:
+  UnusedIncludes: Strict
 Completion:
   AllScopes: yes
+InlayHints:
+  Enabled: Yes
+  DeducedTypes: Yes
+  ParameterNames: No
 Hover:
   ShowAKA: yes

@@ -1,0 +1,21 @@
+
+*.gitconfig*
+* git配置，主要包括core.name与core.email
+
+*.gitignore*
+* `# comment`：注释
+* `**` `*` `?` `[]`：支持的通配符
+* `filename`：忽略所有名为filename的文件，递归搜索
+* `dirname/`：同上，但限制为目录
+* `/filename`：忽略指定路径的文件，路径相对项目根目录
+* `dirname/filename`：隐式在头部添加`/`
+* `!file`：取消忽略前面已忽略的文件
+
+*.gitmodules*
+* 用于管理项目依赖，由`git submodule`命令自动创建并修改
+* git会在仓库中记录下子模块的依赖版本（即pull子模块哪个commit）
+* 更新依赖版本，需要手动进入子模块目录修改HEAD（`commit`,`pull`...）
+
+*.gitkeep*
+* 作为一个约定俗成的文件名，用来保留空目录
+

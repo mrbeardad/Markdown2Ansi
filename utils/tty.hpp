@@ -2,22 +2,17 @@
 #define SEE_UTILS_TTY_HPP_
 
 #include <sys/ioctl.h>
-#include <unistd.h>
-
-#include <utility>
+#include <string>
 
 namespace see::utils {
 
-inline auto GetTtyWinSize() -> ::winsize {
-    static ::winsize kWinSize{};
-    static bool kIsInited{false};
+using WinSize = ::winsize;
 
-    if (!kIsInited) {
-        ::ioctl(STDOUT_FILENO, TIOCGWINSZ, &kWinSize);
-    }
+auto GetTtyWinSize() -> WinSize;
 
-    return kWinSize;
-}
+auto DisplayWidth(const std::string& input) -> int;
+
+auto DisplayWidth(const std::wstring& input) -> int;
 
 }  // namespace see::utils
 

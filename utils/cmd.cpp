@@ -22,10 +22,7 @@
 
 #include "boost/algorithm/string/predicate.hpp"
 
-#include "utils/color.hpp"
 #include "utils/string.hpp"
-#include "utils/sys.hpp"
-#include "utils/tty.hpp"
 
 namespace see::utils {
 
@@ -48,16 +45,13 @@ Options:
     -f <file-prefix>    = Specify prefix of filename in ~/.cheat to search entries
 )";
 
-void PrintErrorInformation(int status,
-                           bool silent_mode = false,
-                           const std::string& info = "") {
-    if (silent_mode) {
+void PrintErrorInformation(int status, bool silent = false, const std::string& info = "") {
+    if (silent) {
         return;
     }
     switch (status) {
         case kParseError:
-            std::cerr << "see: Command line arguments error: " + info + "\n\n"
-                      << kHelpInformation;
+            std::cerr << "see: Command line arguments error: " + info + "\n\n" << kHelpInformation;
             break;
         case kFoundNoFile:
             std::cerr << "see: Found no file: " + info + '\n';
@@ -71,7 +65,8 @@ void PrintErrorInformation(int status,
 }
 
 auto GetCheatDir() -> std::filesystem::path {
-    std::filesystem::path cheat_dir{std::getenv("SEE_CHEAT_DIR")};
+    auto* dirname = std::getenv("SEE_CHEAT_DIR");
+    std::filesystem::path cheat_dir{dirname == nullptr ? "" : dirname};
     if (cheat_dir.empty()) {
         cheat_dir = std::getenv("HOME");
         cheat_dir /= ".cheat";
@@ -81,16 +76,13 @@ auto GetCheatDir() -> std::filesystem::path {
 
 }  // namespace
 
-auto ParseCommandArgs(int argc,
-                      char** argv,
-                      std::vector<std::filesystem::path>& orig_files,
-                      std::vector<std::string>& orig_regexes,
-                      bool& orig_disable_pager,
-                      int silent_mode) -> int {
-    std::vector<std::filesystem::path> files{};
-    std::vector<std::string> regexes{};
-    bool disable_pager{};
+auto ParseCommandArgs(int argc, char** argv, bool silent) -> CmdArgs {
+    CmdArgs cmd_args{};
+    auto& files = cmd_args.files;
+    auto& regexes = cmd_args.regexes;
+    auto& status = cmd_args.return_status;
     std::vector<std::string> file_prefixes{};
+
     for (;;) {
         auto choice = ::getopt(argc, argv, "hpf:");
 
@@ -100,17 +92,19 @@ auto ParseCommandArgs(int argc,
 
         switch (choice) {
             case 'h':
-                PrintErrorInformation(kHelpOption, silent_mode);
-                return kHelpOption;
+                PrintErrorInformation(kHelpOption, silent);
+                status = kHelpOption;
+                return cmd_args;
             case 'p':
-                disable_pager = true;
+                cmd_args.disable_pager = true;
                 break;
             case 'f':
                 file_prefixes.emplace_back(optarg);
                 break;
             case '?':
-                PrintErrorInformation(kParseError, silent_mode);
-                return kParseError;
+                PrintErrorInformation(kParseError, silent);
+                status = kParseError;
+                return cmd_args;
             default:
                 break;
         }
@@ -121,30 +115,30 @@ auto ParseCommandArgs(int argc,
     }
 
     if (regexes.empty()) {
-        PrintErrorInformation(kParseError, silent_mode,
+        PrintErrorInformation(kParseError, silent,
                               "At least one regex word to search for entries.");
-        return kParseError;
+        status = kParseError;
+        return cmd_args;
     }
 
     auto cheat_dir = GetCheatDir();
 
     // if didn't specify files, search for all files
     std::error_code dir_errcode{};
-    auto cheat_dir_entries =
-        std::filesystem::directory_iterator{cheat_dir, dir_errcode};
+    auto cheat_dir_entries = std::filesystem::directory_iterator{cheat_dir, dir_errcode};
     if (dir_errcode) {
-        PrintErrorInformation(kFoundNoFile, silent_mode, dir_errcode.message());
-        return kFoundNoFile;
+        PrintErrorInformation(kFoundNoFile, silent, dir_errcode.message());
+        status = kFoundNoFile;
+        return cmd_args;
     }
     if (file_prefixes.empty()) {
         std::copy_if(cheat_dir_entries, std::filesystem::directory_iterator{},
-                     std::back_inserter(files), [](const auto& cur_file) {
-                         return cur_file.path().extension() == ".md";
-                     });
+                     std::back_inserter(files),
+                     [](const auto& cur_file) { return cur_file.path().extension() == ".md"; });
     } else {
         for (const auto& cur_direntry : cheat_dir_entries) {
-            if (!std::filesystem::is_regular_file(cur_direntry) ||
-                cur_direntry.path().extension() != ".md") {
+            if (!std::filesystem::is_regular_file(cur_direntry)
+                || cur_direntry.path().extension() != ".md") {
                 continue;
             }
 
@@ -159,14 +153,12 @@ auto ParseCommandArgs(int argc,
     }
 
     if (files.empty()) {
-        PrintErrorInformation(kFoundNoFile, silent_mode);
-        return kFoundNoFile;
+        PrintErrorInformation(kFoundNoFile, silent);
+        status = kFoundNoFile;
+        return cmd_args;
     }
 
-    orig_files = std::move(files);
-    orig_regexes = std::move(regexes);
-    orig_disable_pager = disable_pager;
-    return kParseSuccess;
+    return cmd_args;
 }
 
 namespace {
@@ -174,8 +166,6 @@ namespace {
 const auto kEntryBeginPrefix = "<!-- entry begin:";
 const auto kEntryBeginSuffix = "-->";
 const auto kEntryEnd = "<!-- entry end -->";
-const auto kFileNameStartTag = "<header>";
-const auto kFileNameEndTag = "</header>";
 
 auto FileNameTag(const std::string& filename) -> std::string {
     return kFileNameStartTag + filename + kFileNameEndTag + '\n';
@@ -191,26 +181,21 @@ auto SearchEntries(const std::vector<std::filesystem::path>& files,
     for (const auto& cur_file : files) {
         std::ifstream fstrm{cur_file, std::ios_base::in};
         if (!fstrm) {
-            std::cerr << "see: cannot access '" << cur_file.string()
-                      << "': Permission denied\n";
+            std::cerr << "see: cannot access '" << cur_file.string() << "': Permission denied\n";
             return entries;
         }
 
         bool is_in_entry{false};
         for (std::string oneline{}; std::getline(fstrm, oneline);) {
-            if (!is_in_entry &&
-                boost::starts_with(oneline, kEntryBeginPrefix) &&
-                boost::ends_with(oneline, kEntryBeginSuffix)) {
+            if (!is_in_entry && boost::starts_with(oneline, kEntryBeginPrefix)
+                && boost::ends_with(oneline, kEntryBeginSuffix)) {
                 // catch entry begin
                 auto is_match = std::all_of(
-                    regexes.begin(), regexes.end(),
-                    [&oneline](const auto& cur_regex) {
+                    regexes.begin(), regexes.end(), [&oneline](const auto& cur_regex) {
                         return std::regex_search(
-                            oneline.begin() +
-                                static_cast<ptrdiff_t>(
-                                    std::strlen(kEntryBeginPrefix)),
-                            oneline.end() - static_cast<ptrdiff_t>(
-                                                std::strlen(kEntryBeginSuffix)),
+                            oneline.begin()
+                                + static_cast<ptrdiff_t>(std::strlen(kEntryBeginPrefix)),
+                            oneline.end() - static_cast<ptrdiff_t>(std::strlen(kEntryBeginSuffix)),
                             std::regex{cur_regex});
                     });
 
@@ -231,42 +216,19 @@ auto SearchEntries(const std::vector<std::filesystem::path>& files,
         if (!entries_in_cur_file.empty()) {
             entries << FileNameTag(cur_file) << entries_in_cur_file;
         }
+        entries_in_cur_file.clear();
     }
 
     return entries;
 }
 
-namespace {
-
-const std::array kDefultPagers{"less", "more"};
-
-}
-
-auto GetPager() -> std::string {
-    std::string pager{};
-    std::vector default_pagers(kDefultPagers.begin(), kDefultPagers.end());
-    if (auto* user_pager = ::getenv("PAGER"); user_pager != nullptr) {
-        default_pagers.assign({user_pager});
+auto ExecPager() -> int {
+    const auto* pager = ::getenv("PAGER");
+    pager = pager != nullptr ? pager : "less";
+    if (pager == std::string{"less"}) {
+        return ::execlp("less", "less", "-Si", nullptr);
     }
-
-    auto stdout_copy = HandleSyscall(::dup(STDOUT_FILENO));
-    auto stderr_copy = HandleSyscall(::dup(STDERR_FILENO));
-    auto null_fd = HandleSyscall(::open("/dev/null", O_WRONLY));
-    HandleSyscall(dup2(null_fd, STDOUT_FILENO));
-    HandleSyscall(dup2(null_fd, STDERR_FILENO));
-
-    for (const auto* this_pager : default_pagers) {
-        if (::execlp(this_pager, this_pager, "--version", nullptr) < 0) {
-            pager = this_pager;
-            break;
-        }
-    }
-
-    HandleSyscall(::dup2(stdout_copy, STDOUT_FILENO));
-    HandleSyscall(::dup2(stderr_copy, STDERR_FILENO));
-    HandleSyscall(::close(null_fd));
-
-    return pager;
+    return ::execlp(pager, pager, nullptr);
 }
 
 }  // namespace see::utils

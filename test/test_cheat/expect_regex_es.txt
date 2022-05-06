@@ -1,0 +1,15 @@
+
+# 转义字符
+| 转义字符                 | 含义                          | 备注                             |
+|--------------------------|-------------------------------|----------------------------------|
+| `\d` `\D`                | `[[:digit:]]、[^[:digit:]]`   | (+cpp+vim+posix)                 |
+| `\s` `\S`                | `[[:space:]]、[^[:space:]]`   | (+cpp+vim+posix)                 |
+| `\w` `\W`                | `[[:alnum:]_]、[^[:alnum:]_]` | (+cpp+vim+posix)，posix为unicode |
+| `\n` `\r` `\t` `\v` `\f` |                               | (+cpp+vim)                       |
+| `\0` `\xhh` `\uhhhh`     | null字符、ansi、unicode       | (+cpp)                           |
+| `\a` `\b` `\e`           | 警报、退格、escape            |                                  |
+| `\x` `\X`                | `[[:xdigit:]]、[^[:xdigit:]]` | (+vim)                           |
+| `\l` `\L`                | `[[:lower:]]、[^[:lower:]]`   | (+vim)                           |
+| `\u` `\U`                | `[[:upper:]]、[^[:upper:]]`   | (+vim)                           |
+| `\a` `\A`                | `[[:alpha:]]、[^[:alpah:]]`   | (+vim)                           |
+

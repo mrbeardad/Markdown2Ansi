@@ -3,4 +3,6 @@
 
 #define PROJECT_SOURCE_DIR "@CMAKE_SOURCE_DIR@"
 
+#define TEST_CHEAT_DIR PROJECT_SOURCE_DIR "/test/test_cheat"
+
 #endif  // !SEE_UTILS_PROJECT_HPP_

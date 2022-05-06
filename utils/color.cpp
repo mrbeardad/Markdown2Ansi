@@ -63,30 +63,12 @@ auto RainbowText(const std::string& text) -> std::string {
             static_cast<unsigned char>(~rgb[0]),
             static_cast<unsigned char>(~rgb[1]),
             static_cast<unsigned char>(~rgb[2])};
-        rainbow_wtext << MakeAnsiColorCode(rgb) << MakeAnsiColorCode(bg_rgb)
-                      << cur_wchar;
+        rainbow_wtext << MakeAnsiColorCode(rgb)
+                      << MakeAnsiColorCode(bg_rgb, true) << cur_wchar;
         NextColor(rgb);
     }
     rainbow_wtext << kDefaultColor;
     return boost::locale::conv::utf_to_utf<char>(rainbow_wtext);
-}
-
-// TODO: move rainbow file header to mkdblock
-auto HighlightFilename(const std::string& filename) -> std::string {
-    auto win_size = GetTtyWinSize();
-    // Except 2 space around filename
-    auto remain_length =
-        static_cast<size_t>(win_size.ws_col) - filename.length() - 2;
-
-    std::string filename_header{};
-    for (size_t i{}; i < remain_length / 2; ++i) {
-        filename_header << "─";
-    }
-    filename_header << ' ' << filename << ' ';
-    for (size_t i{}; i < remain_length - remain_length / 2; ++i) {
-        filename_header << "─";
-    }
-    return RainbowText(filename_header);
 }
 
 }  // namespace see::utils

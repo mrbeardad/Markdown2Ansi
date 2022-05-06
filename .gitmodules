@@ -4,3 +4,6 @@
 [submodule "third_party/unicode_display_width"]
 	path = third_party/unicode_display_width
 	url = https://github.com/p-ranav/unicode_display_width
+[submodule "doc"]
+	path = doc
+	url = https://github.com/kracejic/EmptyDoxygenCMake
