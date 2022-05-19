@@ -8,10 +8,10 @@ project(SeeCheatSheet VERSION 3.0)
 set(CMAKE_CXX_STANDARD 17)
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-O0 -fstandalone-debug)
+    add_compile_options(-Wall -Wextra -fstandalone-debug)
     add_link_options(-rdynamic)
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    add_compile_options(-g3)
+    add_compile_options(-Wall -Wextra -g3)
     add_link_options(-rdynamic)
   endif()
 endif()
@@ -30,6 +30,7 @@ set(WITH_TESTS
     OFF
     CACHE BOOL "disable eternal tests" FORCE)
 add_subdirectory(third_party/eternal)
+target_include_directories(eternal INTERFACE ${eternal_SOURCE_DIR}/include)
 
 # Target: utils
 file(GLOB UTILS_FILES CONFIGURE_DEPENDS utils/*.cpp)
@@ -39,7 +40,7 @@ target_link_libraries(utils PRIVATE boost_locale unicode_display_width)
 # Target: md2ansi
 file(GLOB MD2ANSI_FILES md2ansi/*.cpp)
 add_library(md2ansi STATIC ${MD2ANSI_FILES})
-target_link_libraries(md2ansi PRIVATE utils md4c md4c-html boost_locale
+target_link_libraries(md2ansi PRIVATE utils md4c md4c-html eternal boost_locale
                                       source-highlight)
 
 # Target: test_bin
@@ -55,7 +56,7 @@ add_custom_target(
 
 # Target: see
 add_executable(see see.cpp)
-target_link_libraries(see PRIVATE utils md2ansi)
+target_link_libraries(see PRIVATE utils md2ansi unicode_display_width)
 
 # Target: prof
 add_custom_target(

@@ -18,8 +18,9 @@
 #include <string>
 #include <vector>
 
+#include "unicode/display_width.hpp"
+
 #include "md2ansi/md2ansi.hpp"
-#include "third_party/unicode_display_width/include/unicode/display_width.hpp"
 #include "utils/cmd.hpp"
 #include "utils/sys.hpp"
 #include "utils/tty.hpp"
