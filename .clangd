@@ -1,5 +1,5 @@
 CompileFlags:
-  Add: [-Wall, -Wextra]
+  Add: [-Wall, -Wextra, -O2]
   CompilationDatabase: build
 Diagnostics:
   UnusedIncludes: Strict

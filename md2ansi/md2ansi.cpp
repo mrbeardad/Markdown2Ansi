@@ -1,277 +1,225 @@
 #include "md2ansi/md2ansi.hpp"
 
 #include <algorithm>
+#include <memory>
 #include <string>
-#include <utility>
-#include <vector>
 
+#include "md2ansi/a.hpp"
+#include "md2ansi/code.hpp"
+#include "md2ansi/del.hpp"
+#include "md2ansi/em.hpp"
+#include "md2ansi/entity.hpp"
+#include "md2ansi/h.hpp"
+#include "md2ansi/hr.hpp"
+#include "md2ansi/html.hpp"
+#include "md2ansi/img.hpp"
+#include "md2ansi/latex.hpp"
+#include "md2ansi/list.hpp"
+#include "md2ansi/md2ansi_span.hpp"
+#include "md2ansi/normal.hpp"
+#include "md2ansi/p.hpp"
+#include "md2ansi/quote.hpp"
+#include "md2ansi/strong.hpp"
+#include "md2ansi/table.hpp"
+#include "md2ansi/u.hpp"
 #include "md4c.h"
-
-#include "md2ansi/block_code.hpp"
-#include "md2ansi/block_h.hpp"
-#include "md2ansi/block_hr.hpp"
-#include "md2ansi/block_html.hpp"
-#include "md2ansi/block_list.hpp"
-#include "md2ansi/block_p.hpp"
-#include "md2ansi/block_quote.hpp"
-#include "md2ansi/block_table.hpp"
-#include "md2ansi/span.hpp"
 
 namespace see::md2ansi {
 
+Md2Ansi::Md2Ansi()
+    : block_handlers_{},
+      span_handlers_{},
+      text_handlers_{},
+      context_{kDefaultStyle},
+      pos_{kStart} {}
+
+Md2Ansi::Md2Ansi(Md2Ansi&&) noexcept = default;
+auto Md2Ansi::operator=(Md2Ansi&&) noexcept -> Md2Ansi& = default;
+Md2Ansi::~Md2Ansi() = default;
+
+auto Md2Ansi::RegisterBlock(std::unique_ptr<BlockHandler> block_handler) -> bool {
+  auto& target = block_handlers_.at(block_handler->GetType());
+  if (target != nullptr) {
+    return false;
+  }
+  target = std::move(block_handler);
+  return true;
+}
+
+auto Md2Ansi::RegisterSpan(std::unique_ptr<SpanHandler> span_handler) -> bool {
+  auto& target = span_handlers_.at(span_handler->GetType());
+  if (target != nullptr) {
+    return false;
+  }
+  target = std::move(span_handler);
+  return true;
+}
+
+auto Md2Ansi::RegisterText(std::unique_ptr<TextHandler> text_handler) -> bool {
+  auto& target = text_handlers_.at(text_handler->GetType());
+  if (target != nullptr) {
+    return false;
+  }
+  target = std::move(text_handler);
+  return true;
+}
+
+auto Md2Ansi::EnterBlock(MD_BLOCKTYPE type, void* detail) -> int {
+  auto& handler = block_handlers_.at(type);
+  if (handler == nullptr) {
+    return 0;
+  }
+  context_.emplace_back(handler->GetStyle());
+  // The width of the block element is the same as the parent element,
+  // add newline at block start when text already exists in current line
+  // and is not block header.
+  if (pos_ == kInner) {
+    text_ += '\n';
+  }
+  pos_ = kStart;
+  handler->BlockStart(text_, detail);
+  return 0;
+}
+
+auto Md2Ansi::LeaveBlock(MD_BLOCKTYPE type, void* detail) -> int {
+  auto& handler = block_handlers_.at(type);
+  if (handler == nullptr) {
+    return 0;
+  }
+  context_.pop_back();
+  handler->BlockEnd(text_, detail);
+  // reset style
+  for (const auto& style : context_) {
+    text_ += style;
+  }
+  // The child element is in the same box as its parent.
+  if (pos_ != kEnd) {
+    text_ += '\n';
+  }
+  pos_ = kEnd;
+  return 0;
+}
+
+auto Md2Ansi::EnterSpan(MD_SPANTYPE type, void* detail) -> int {
+  auto& handler = span_handlers_.at(type);
+  if (handler == nullptr) {
+    return 0;
+  }
+  context_.emplace_back(handler->GetStyle());
+  handler->SpanStart(text_, detail);
+  return 0;
+}
+
+auto Md2Ansi::LeaveSpan(MD_SPANTYPE type, void* detail) -> int {
+  auto& handler = span_handlers_.at(type);
+  if (handler == nullptr) {
+    return 0;
+  }
+  context_.pop_back();
+  handler->SpanEnd(text_, detail);
+  // reset style
+  for (const auto& style : context_) {
+    text_ += style;
+  }
+  return 0;
+}
+
+auto Md2Ansi::TextHandle(MD_TEXTTYPE type, const MD_CHAR* raw, MD_SIZE len) -> int {
+  auto& handler = text_handlers_.at(type);
+  if (handler == nullptr) {
+    return 0;
+  }
+  handler->HandleText(text_, raw, len);
+  pos_ = kInner;
+  return 0;
+}
+
 namespace {
 
-// NOLINTNEXTLINE: reset each time
-std::string kText{};
-// NOLINTNEXTLINE: reset each time
-std::vector<MD_BLOCKTYPE> kBlockContextStack{};
-// NOLINTNEXTLINE: reset each time
-bool kBlockCloseJustNow{false};
+// NOLINTNEXTLINE: Compatible with md4c
+const auto kMd4cFlags = MD_FLAG_COLLAPSEWHITESPACE | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH
+                        | MD_FLAG_TASKLISTS | MD_FLAG_LATEXMATHSPANS;
 
-auto EnterBlock(MD_BLOCKTYPE type, void* detail, void* /*userdata*/) -> int {
-    kBlockContextStack.emplace_back(type);
-    // block element occupy all the width of parent element
-    if (!kText.empty()) {
-        if (kText.back() == '\x01') {
-            kText.pop_back();
-        } else if (kText.back() != '\n') {
-            kText += '\n';
-        }
-    }
-    switch (type) {
-        case MD_BLOCK_DOC:
-            break;
-        case MD_BLOCK_QUOTE:
-            HandleQuoteStart(kText);
-            break;
-        case MD_BLOCK_UL:
-            HandleUlStart(kText, detail);
-            break;
-        case MD_BLOCK_OL:
-            HandleOlStart(kText, detail);
-            break;
-        case MD_BLOCK_LI:
-            HandleLiStart(kText, detail);
-            break;
-        case MD_BLOCK_HR:
-            HandleHrStart(kText);
-            break;
-        case MD_BLOCK_H:
-            HandleHStart(kText, detail);
-            break;
-        case MD_BLOCK_CODE:
-            HandleCodeBlockStart(kText, detail);
-            break;
-        case MD_BLOCK_HTML:
-            HandleHtmlStart(kText);
-            break;
-        case MD_BLOCK_P:
-            HandlePStart(kText);
-            break;
-        case MD_BLOCK_TABLE:
-            HandleTableStart(kText, detail);
-            break;
-        case MD_BLOCK_THEAD:
-            HandleTheadStart(kText);
-            break;
-        case MD_BLOCK_TBODY:
-            HandleTbodyStart(kText);
-            break;
-        case MD_BLOCK_TR:
-            HandleTrStart(kText);
-            break;
-        case MD_BLOCK_TH:
-            HandleThStart(kText, detail);
-            break;
-        case MD_BLOCK_TD:
-            HandleTdStart(kText, detail);
-            break;
-    }
-    return 0;
+// NOLINTNEXTLINE: Compatible with md4c
+Md2Ansi* kMd2Ansi{};
+
+auto Md4cEnterBlock(MD_BLOCKTYPE type, void* detail, void* /*userdata*/) -> int {
+  return kMd2Ansi->EnterBlock(type, detail);
 }
 
-auto LeaveBlock(MD_BLOCKTYPE type, void* detail, void* /*userdata*/) -> int {
-    switch (type) {
-        case MD_BLOCK_DOC:
-            break;
-        case MD_BLOCK_QUOTE:
-            HandleQuoteEnd(kText);
-            break;
-        case MD_BLOCK_UL:
-            HandleUlEnd(kText, detail);
-            break;
-        case MD_BLOCK_OL:
-            HandleOlEnd(kText, detail);
-            break;
-        case MD_BLOCK_LI:
-            HandleLiEnd(kText, detail);
-            break;
-        case MD_BLOCK_HR:
-            HandleHrEnd(kText);
-            break;
-        case MD_BLOCK_H:
-            HandleHEnd(kText, detail);
-            break;
-        case MD_BLOCK_CODE:
-            HandleCodeBlockEnd(kText, detail);
-            break;
-        case MD_BLOCK_HTML:
-            HandleHtmlEnd(kText);
-            break;
-        case MD_BLOCK_P:
-            HandlePEnd(kText);
-            break;
-        case MD_BLOCK_TABLE:
-            HandleTableEnd(kText, detail);
-            break;
-        case MD_BLOCK_THEAD:
-            HandleTheadEnd(kText);
-            break;
-        case MD_BLOCK_TBODY:
-            HandleTbodyEnd(kText);
-            break;
-        case MD_BLOCK_TR:
-            HandleTrEnd(kText);
-            break;
-        case MD_BLOCK_TH:
-            HandleThEnd(kText, detail);
-            break;
-        case MD_BLOCK_TD:
-            HandleTdEnd(kText, detail);
-            break;
-    }
-    if (!kBlockCloseJustNow) {
-        kText += '\n';
-        kBlockCloseJustNow = true;
-    }
-    kBlockContextStack.pop_back();
-    return 0;
+auto Md4cLeaveBlock(MD_BLOCKTYPE type, void* detail, void* /*userdata*/) -> int {
+  return kMd2Ansi->LeaveBlock(type, detail);
 }
 
-auto EnterSpan(MD_SPANTYPE type, void* detail, void* /*userdata*/) -> int {
-    switch (type) {
-        case MD_SPAN_EM:
-            HandleEmStart(kText);
-            break;
-        case MD_SPAN_STRONG:
-            HandleStrongStart(kText);
-            break;
-        case MD_SPAN_A:
-            HandleAStart(kText, detail);
-            break;
-        case MD_SPAN_IMG:
-            HandleImgStart(kText, detail);
-            break;
-        case MD_SPAN_DEL:
-            HandleDelStart(kText);
-            break;
-        case MD_SPAN_CODE:
-            HandleCodeStart(kText);
-            break;
-        case MD_SPAN_U:
-            HandleUStart(kText);
-            break;
-        case MD_SPAN_LATEXMATH:
-            HandleLatexStart(kText);
-            break;
-        case MD_SPAN_LATEXMATH_DISPLAY:
-            HandleLatexDisplayStart(kText);
-            break;
-        case MD_SPAN_WIKILINK:
-            break;
-    }
-    return 0;
+auto Md4cEnterSpan(MD_SPANTYPE type, void* detail, void* /*userdata*/) -> int {
+  return kMd2Ansi->EnterSpan(type, detail);
 }
 
-auto LeaveSpan(MD_SPANTYPE type, void* detail, void* /*userdata*/) -> int {
-    switch (type) {
-        case MD_SPAN_EM:
-            HandleEmEnd(kText);
-            break;
-        case MD_SPAN_STRONG:
-            HandleStrongEnd(kText);
-            break;
-        case MD_SPAN_A:
-            HandleAEnd(kText, detail);
-            break;
-        case MD_SPAN_IMG:
-            HandleImgEnd(kText, detail);
-            break;
-        case MD_SPAN_DEL:
-            HandleDelEnd(kText);
-            break;
-        case MD_SPAN_CODE:
-            HandleCodeEnd(kText);
-            break;
-        case MD_SPAN_U:
-            HandleUEnd(kText);
-            break;
-        case MD_SPAN_LATEXMATH:
-            HandleLatexEnd(kText);
-            break;
-        case MD_SPAN_LATEXMATH_DISPLAY:
-            HandleLatexDisplayEnd(kText);
-            break;
-        case MD_SPAN_WIKILINK:
-            break;
-    }
-    if (std::find(kBlockContextStack.begin(), kBlockContextStack.end(),
-                  MD_BLOCK_QUOTE) != kBlockContextStack.end()) {
-        kText += "\033[1;30m";
-    }
-    return 0;
+auto Md4cLeaveSpan(MD_SPANTYPE type, void* detail, void* /*userdata*/) -> int {
+  return kMd2Ansi->LeaveSpan(type, detail);
 }
 
-auto TextHandle(MD_TEXTTYPE type,
-                const MD_CHAR* text,
-                MD_SIZE len,
-                void* /*userdata*/) -> int {
-    kBlockCloseJustNow = false;
-    switch (type) {
-        case MD_TEXT_NORMAL:
-            kText.append(text, len);
-            break;
-        case MD_TEXT_BR:
-            kText += '\n';
-            break;
-        case MD_TEXT_ENTITY:
-            HandleEntityText(kText, text, len);
-            break;
-        case MD_TEXT_CODE:
-            HandleCodeBlockText(kText, text, len);
-            break;
-        case MD_TEXT_HTML:
-            HandleHtmlText(kText, text, len);
-            break;
-        case MD_TEXT_LATEXMATH:
-            HandleLatexText(kText, text, len);
-        case MD_TEXT_NULLCHAR:
-        case MD_TEXT_SOFTBR:
-            break;
-    }
-    return 0;
+auto Md4cTextHandle(MD_TEXTTYPE type, const MD_CHAR* raw, MD_SIZE len, void* /*userdata*/) -> int {
+  return kMd2Ansi->TextHandle(type, raw, len);
 }
 
-}  // namespace
+};  // namespace
 
-#define MD_CUSTOM_FLAGS                                                   \
-    MD_FLAG_COLLAPSEWHITESPACE | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH | \
-        MD_FLAG_TASKLISTS | MD_FLAG_LATEXMATHSPANS;
+auto Md2Ansi::operator()(const std::string& raw_text) -> std::string {
+  kMd2Ansi = this;
 
-auto Highlight(const std::string& text) -> std::string {
-    MD_PARSER parser{};
-    parser.flags = MD_CUSTOM_FLAGS;
-    parser.enter_block = EnterBlock;
-    parser.leave_block = LeaveBlock;
-    parser.enter_span = EnterSpan;
-    parser.leave_span = LeaveSpan;
-    parser.text = TextHandle;
+  MD_PARSER parser{};
+  parser.flags = kMd4cFlags;
+  parser.enter_block = Md4cEnterBlock;
+  parser.leave_block = Md4cLeaveBlock;
+  parser.enter_span = Md4cEnterSpan;
+  parser.leave_span = Md4cLeaveSpan;
+  parser.text = Md4cTextHandle;
 
-    md_parse(text.c_str(), text.length(), &parser, nullptr);
+  md_parse(raw_text.c_str(), raw_text.length(), &parser, nullptr);
 
-    auto ret = std::move(kText);
-    kText.clear();
-    return ret;
+  auto ret = text_;
+  text_.clear();
+  context_.assign({kDefaultStyle});
+  pos_ = kStart;
+  return ret;
+}
+
+auto MakeDefaultMd2Ansi() -> Md2Ansi {
+  Md2Ansi md2ansi{};
+
+  md2ansi.RegisterBlock(std::make_unique<CodeBlock>());
+  md2ansi.RegisterBlock(std::make_unique<HBlock>());
+  md2ansi.RegisterBlock(std::make_unique<HrBlock>());
+  md2ansi.RegisterBlock(std::make_unique<UlBlock>());
+  md2ansi.RegisterBlock(std::make_unique<OlBlock>());
+  md2ansi.RegisterBlock(std::make_unique<LiBlock>());
+  md2ansi.RegisterBlock(std::make_unique<PBlock>());
+  md2ansi.RegisterBlock(std::make_unique<QuoteBlock>());
+  md2ansi.RegisterBlock(std::make_unique<TableBlock>());
+  md2ansi.RegisterBlock(std::make_unique<TheadBlock>());
+  md2ansi.RegisterBlock(std::make_unique<TbodyBlock>());
+  md2ansi.RegisterBlock(std::make_unique<TrBlock>());
+  md2ansi.RegisterBlock(std::make_unique<ThBlock>());
+  md2ansi.RegisterBlock(std::make_unique<TdBlock>());
+
+  md2ansi.RegisterSpan(std::make_unique<ASpan>());
+  md2ansi.RegisterSpan(std::make_unique<CodeSpan>());
+  md2ansi.RegisterSpan(std::make_unique<DelSpan>());
+  md2ansi.RegisterSpan(std::make_unique<EmSpan>());
+  md2ansi.RegisterSpan(std::make_unique<ImgSpan>());
+  md2ansi.RegisterSpan(std::make_unique<LatexSpan>());
+  md2ansi.RegisterSpan(std::make_unique<LatexDisplaySpan>());
+  md2ansi.RegisterSpan(std::make_unique<StrongSpan>());
+  md2ansi.RegisterSpan(std::make_unique<USpan>());
+
+  md2ansi.RegisterText(std::make_unique<NormalText>());
+  md2ansi.RegisterText(std::make_unique<CodeText>());
+  md2ansi.RegisterText(std::make_unique<EntityText>());
+  md2ansi.RegisterText(std::make_unique<HtmlText>());
+  md2ansi.RegisterText(std::make_unique<LatexText>());
+
+  return md2ansi;
 }
 
 }  // namespace see::md2ansi

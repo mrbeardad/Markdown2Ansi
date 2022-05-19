@@ -46,119 +46,118 @@ Options:
 )";
 
 void PrintErrorInformation(int status, bool silent = false, const std::string& info = "") {
-    if (silent) {
-        return;
-    }
-    switch (status) {
-        case kParseError:
-            std::cerr << "see: Command line arguments error: " + info + "\n\n" << kHelpInformation;
-            break;
-        case kFoundNoFile:
-            std::cerr << "see: Found no file: " + info + '\n';
-            break;
-        case kHelpOption:
-            std::cout << kHelpInformation << std::endl;
-            break;
-        default:
-            break;
-    }
+  if (silent) {
+    return;
+  }
+  switch (status) {
+    case kParseError:
+      std::cerr << "see: Command line arguments error: " + info + "\n\n" << kHelpInformation;
+      break;
+    case kFoundNoFile:
+      std::cerr << "see: Found no file: " + info + '\n';
+      break;
+    case kHelpOption:
+      std::cout << kHelpInformation << std::endl;
+      break;
+    default:
+      break;
+  }
 }
 
 auto GetCheatDir() -> std::filesystem::path {
-    auto* dirname = std::getenv("SEE_CHEAT_DIR");
-    std::filesystem::path cheat_dir{dirname == nullptr ? "" : dirname};
-    if (cheat_dir.empty()) {
-        cheat_dir = std::getenv("HOME");
-        cheat_dir /= ".cheat";
-    }
-    return cheat_dir;
+  auto dirname = std::getenv("SEE_CHEAT_DIR");
+  std::filesystem::path cheat_dir{dirname == nullptr ? "" : dirname};
+  if (cheat_dir.empty()) {
+    cheat_dir = std::getenv("HOME");
+    cheat_dir /= ".cheat";
+  }
+  return cheat_dir;
 }
 
 }  // namespace
 
 auto ParseCommandArgs(int argc, char** argv, bool silent) -> CmdArgs {
-    CmdArgs cmd_args{};
-    auto& files = cmd_args.files;
-    auto& regexes = cmd_args.regexes;
-    auto& status = cmd_args.return_status;
-    std::vector<std::string> file_prefixes{};
+  CmdArgs cmd_args{};
+  auto& files = cmd_args.files;
+  auto& regexes = cmd_args.regexes;
+  auto& status = cmd_args.return_status;
+  std::vector<std::string> file_prefixes{};
 
-    for (;;) {
-        auto choice = ::getopt(argc, argv, "hpf:");
+  for (;;) {
+    auto choice = ::getopt(argc, argv, "hpf:");
 
-        if (choice == -1) {
-            break;
-        }
-
-        switch (choice) {
-            case 'h':
-                PrintErrorInformation(kHelpOption, silent);
-                status = kHelpOption;
-                return cmd_args;
-            case 'p':
-                cmd_args.disable_pager = true;
-                break;
-            case 'f':
-                file_prefixes.emplace_back(optarg);
-                break;
-            case '?':
-                PrintErrorInformation(kParseError, silent);
-                status = kParseError;
-                return cmd_args;
-            default:
-                break;
-        }
+    if (choice == -1) {
+      break;
     }
 
-    while (::optind < argc) {
-        regexes.emplace_back(argv[::optind++]);
-    }
-
-    if (regexes.empty()) {
-        PrintErrorInformation(kParseError, silent,
-                              "At least one regex word to search for entries.");
+    switch (choice) {
+      case 'h':
+        PrintErrorInformation(kHelpOption, silent);
+        status = kHelpOption;
+        return cmd_args;
+      case 'p':
+        cmd_args.disable_pager = true;
+        break;
+      case 'f':
+        file_prefixes.emplace_back(optarg);
+        break;
+      case '?':
+        PrintErrorInformation(kParseError, silent);
         status = kParseError;
         return cmd_args;
+      default:
+        break;
     }
+  }
 
-    auto cheat_dir = GetCheatDir();
+  while (::optind < argc) {
+    regexes.emplace_back(argv[::optind++]);
+  }
 
-    // if didn't specify files, search for all files
-    std::error_code dir_errcode{};
-    auto cheat_dir_entries = std::filesystem::directory_iterator{cheat_dir, dir_errcode};
-    if (dir_errcode) {
-        PrintErrorInformation(kFoundNoFile, silent, dir_errcode.message());
-        status = kFoundNoFile;
-        return cmd_args;
-    }
-    if (file_prefixes.empty()) {
-        std::copy_if(cheat_dir_entries, std::filesystem::directory_iterator{},
-                     std::back_inserter(files),
-                     [](const auto& cur_file) { return cur_file.path().extension() == ".md"; });
-    } else {
-        for (const auto& cur_direntry : cheat_dir_entries) {
-            if (!std::filesystem::is_regular_file(cur_direntry)
-                || cur_direntry.path().extension() != ".md") {
-                continue;
-            }
-
-            std::string cur_filename{cur_direntry.path().filename()};
-            for (auto& cur_file_prefix : file_prefixes) {
-                if (cur_filename.find(cur_file_prefix) == 0) {
-                    files.emplace_back(cur_direntry.path());
-                    break;
-                }
-            }
-        }
-    }
-
-    if (files.empty()) {
-        PrintErrorInformation(kFoundNoFile, silent);
-        status = kFoundNoFile;
-        return cmd_args;
-    }
-
+  if (regexes.empty()) {
+    PrintErrorInformation(kParseError, silent, "At least one regex word to search for entries.");
+    status = kParseError;
     return cmd_args;
+  }
+
+  auto cheat_dir = GetCheatDir();
+
+  // if didn't specify files, search for all files
+  std::error_code dir_errcode{};
+  auto cheat_dir_entries = std::filesystem::directory_iterator{cheat_dir, dir_errcode};
+  if (dir_errcode) {
+    PrintErrorInformation(kFoundNoFile, silent, dir_errcode.message());
+    status = kFoundNoFile;
+    return cmd_args;
+  }
+  if (file_prefixes.empty()) {
+    std::copy_if(cheat_dir_entries, std::filesystem::directory_iterator{},
+                 std::back_inserter(files),
+                 [](const auto& cur_file) { return cur_file.path().extension() == ".md"; });
+  } else {
+    for (const auto& cur_direntry : cheat_dir_entries) {
+      if (!std::filesystem::is_regular_file(cur_direntry)
+          || cur_direntry.path().extension() != ".md") {
+        continue;
+      }
+
+      std::string cur_filename{cur_direntry.path().filename()};
+      for (auto& cur_file_prefix : file_prefixes) {
+        if (cur_filename.find(cur_file_prefix) == 0) {
+          files.emplace_back(cur_direntry.path());
+          break;
+        }
+      }
+    }
+  }
+
+  if (files.empty()) {
+    PrintErrorInformation(kFoundNoFile, silent);
+    status = kFoundNoFile;
+    return cmd_args;
+  }
+
+  return cmd_args;
 }
 
 namespace {
@@ -168,67 +167,66 @@ const auto kEntryBeginSuffix = "-->";
 const auto kEntryEnd = "<!-- entry end -->";
 
 auto FileNameTag(const std::string& filename) -> std::string {
-    return kFileNameStartTag + filename + kFileNameEndTag + '\n';
+  return kFileNameStartTag + filename + kFileNameEndTag + '\n';
 }
 
 }  // namespace
 
 auto SearchEntries(const std::vector<std::filesystem::path>& files,
                    const std::vector<std::string>& regexes) -> std::string {
-    std::string entries{};
+  std::string entries{};
 
-    std::string entries_in_cur_file{};
-    for (const auto& cur_file : files) {
-        std::ifstream fstrm{cur_file, std::ios_base::in};
-        if (!fstrm) {
-            std::cerr << "see: cannot access '" << cur_file.string() << "': Permission denied\n";
-            return entries;
-        }
-
-        bool is_in_entry{false};
-        for (std::string oneline{}; std::getline(fstrm, oneline);) {
-            if (!is_in_entry && boost::starts_with(oneline, kEntryBeginPrefix)
-                && boost::ends_with(oneline, kEntryBeginSuffix)) {
-                // catch entry begin
-                auto is_match = std::all_of(
-                    regexes.begin(), regexes.end(), [&oneline](const auto& cur_regex) {
-                        return std::regex_search(
-                            oneline.begin()
-                                + static_cast<ptrdiff_t>(std::strlen(kEntryBeginPrefix)),
-                            oneline.end() - static_cast<ptrdiff_t>(std::strlen(kEntryBeginSuffix)),
-                            std::regex{cur_regex});
-                    });
-
-                if (is_match) {
-                    is_in_entry = true;
-                    entries_in_cur_file << '\n';
-                }
-            } else if (is_in_entry) {
-                // catch entry content or entry end
-                if (oneline != kEntryEnd) {
-                    entries_in_cur_file << oneline << '\n';
-                } else {
-                    is_in_entry = false;
-                    entries_in_cur_file << '\n';
-                }
-            }
-        }
-        if (!entries_in_cur_file.empty()) {
-            entries << FileNameTag(cur_file) << entries_in_cur_file;
-        }
-        entries_in_cur_file.clear();
+  std::string entries_in_cur_file{};
+  for (const auto& cur_file : files) {
+    std::ifstream fstrm{cur_file, std::ios_base::in};
+    if (!fstrm) {
+      std::cerr << "see: cannot access '" << cur_file.string() << "': Permission denied\n";
+      return entries;
     }
 
-    return entries;
+    bool is_in_entry{false};
+    for (std::string oneline{}; std::getline(fstrm, oneline);) {
+      if (!is_in_entry && boost::starts_with(oneline, kEntryBeginPrefix)
+          && boost::ends_with(oneline, kEntryBeginSuffix)) {
+        // catch entry begin
+        auto is_match
+            = std::all_of(regexes.begin(), regexes.end(), [&oneline](const auto& cur_regex) {
+                return std::regex_search(
+                    oneline.begin() + static_cast<ptrdiff_t>(std::strlen(kEntryBeginPrefix)),
+                    oneline.end() - static_cast<ptrdiff_t>(std::strlen(kEntryBeginSuffix)),
+                    std::regex{cur_regex});
+              });
+
+        if (is_match) {
+          is_in_entry = true;
+          entries_in_cur_file << '\n';
+        }
+      } else if (is_in_entry) {
+        // catch entry content or entry end
+        if (oneline != kEntryEnd) {
+          entries_in_cur_file << oneline << '\n';
+        } else {
+          is_in_entry = false;
+          entries_in_cur_file << '\n';
+        }
+      }
+    }
+    if (!entries_in_cur_file.empty()) {
+      entries << FileNameTag(cur_file) << entries_in_cur_file;
+    }
+    entries_in_cur_file.clear();
+  }
+
+  return entries;
 }
 
 auto ExecPager() -> int {
-    const auto* pager = ::getenv("PAGER");
-    pager = pager != nullptr ? pager : "less";
-    if (pager == std::string{"less"}) {
-        return ::execlp("less", "less", "-Si", nullptr);
-    }
-    return ::execlp(pager, pager, nullptr);
+  const auto* pager = ::getenv("PAGER");
+  pager = pager != nullptr ? pager : "less";
+  if (pager == std::string{"less"}) {
+    return ::execlp("less", "less", "-Si", nullptr);
+  }
+  return ::execlp(pager, pager, nullptr);
 }
 
 }  // namespace see::utils

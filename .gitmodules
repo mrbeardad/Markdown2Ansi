@@ -1,9 +1,9 @@
 [submodule "third_party/md4c"]
 	path = third_party/md4c
 	url = https://github.com/mity/md4c/
+[submodule "third_party/eternal"]
+	path = third_party/eternal
+	url = https://github.com/mapbox/eternal
 [submodule "third_party/unicode_display_width"]
 	path = third_party/unicode_display_width
-	url = https://github.com/p-ranav/unicode_display_width
-[submodule "doc"]
-	path = doc
-	url = https://github.com/kracejic/EmptyDoxygenCMake
+	url = https://github.com/mrbeardad/unicode_display_width

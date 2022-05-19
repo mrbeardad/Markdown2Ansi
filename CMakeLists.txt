@@ -8,30 +8,39 @@ project(SeeCheatSheet VERSION 3.0)
 set(CMAKE_CXX_STANDARD 17)
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-fstandalone-debug)
+    add_compile_options(-O0 -fstandalone-debug)
+    add_link_options(-rdynamic)
   elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    add_compile_options(-g3 -rdynamic)
+    add_compile_options(-g3)
+    add_link_options(-rdynamic)
   endif()
 endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
-configure_file(utils/project.h.in utils/project.hpp)
+configure_file(utils/project.h.in utils/project.hpp @ONLY)
 
-# Target: utils
-file(GLOB UTILS_FILES utils/*.cpp)
-add_library(utils STATIC ${UTILS_FILES})
-target_include_directories(utils
-                           PRIVATE third_party/unicode_display_width/include)
-target_link_libraries(utils PRIVATE boost_locale)
+add_subdirectory(third_party/unicode_display_width)
 
-# Target: md2ansi
-file(GLOB MD2ANSI_FILES md2ansi/*.cpp)
-add_library(md2ansi STATIC ${MD2ANSI_FILES})
-target_include_directories(md2ansi PRIVATE third_party/md4c/src)
 set(BUILD_SHARED_LIBS
     OFF
     CACHE BOOL "build md4c with static library" FORCE)
 add_subdirectory(third_party/md4c)
-target_link_libraries(md2ansi PRIVATE utils md4c source-highlight)
+include_directories(third_party/md4c/src)
+
+set(WITH_TESTS
+    OFF
+    CACHE BOOL "disable eternal tests" FORCE)
+add_subdirectory(third_party/eternal)
+
+# Target: utils
+file(GLOB UTILS_FILES CONFIGURE_DEPENDS utils/*.cpp)
+add_library(utils STATIC ${UTILS_FILES})
+target_link_libraries(utils PRIVATE boost_locale unicode_display_width)
+
+# Target: md2ansi
+file(GLOB MD2ANSI_FILES md2ansi/*.cpp)
+add_library(md2ansi STATIC ${MD2ANSI_FILES})
+target_link_libraries(md2ansi PRIVATE utils md4c md4c-html boost_locale
+                                      source-highlight)
 
 # Target: test_bin
 file(GLOB TEST_FILES test/*.cpp)

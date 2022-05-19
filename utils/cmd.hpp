@@ -9,18 +9,18 @@
 namespace see::utils {
 
 enum CmdParseStatus {
-    kParseSuccess,
-    kHelpOption,
-    kParseError,
-    kFoundNoFile,
+  kParseSuccess,
+  kHelpOption,
+  kParseError,
+  kFoundNoFile,
 };
 
 struct CmdArgs {
-    std::vector<std::filesystem::path>
-        files;  ///< User specified files. By default search for all files in cheat directory.
-    std::vector<std::string> regexes;  ///< User specified regex expression to match entries.
-    bool disable_pager;  ///< Disable pager. Launch pager when output is too more by default.
-    CmdParseStatus return_status;  ///< Parsing result
+  std::vector<std::filesystem::path>
+      files;  ///< User specified files. By default search for all files in cheat directory.
+  std::vector<std::string> regexes;  ///< User specified regex expression to match entries.
+  bool disable_pager;  ///< Disable pager. Launch pager when output is too more by default.
+  CmdParseStatus return_status;  ///< Parsing result
 };
 
 /**

@@ -7,18 +7,18 @@ namespace see::utils {
 
 template <typename T>
 auto HandleSyscall(T sysCallRet) -> T {
-    if (sysCallRet < 0) {
-        throw std::system_error{errno, std::generic_category()};
-    }
-    return sysCallRet;
+  if (sysCallRet < 0) {
+    throw std::system_error{errno, std::generic_category()};
+  }
+  return sysCallRet;
 }
 
 template <typename T>
 auto HandleSyscall(T* sysCallRet) -> T* {
-    if (sysCallRet == nullptr) {
-        throw std::system_error{errno, std::generic_category()};
-    }
-    return sysCallRet;
+  if (sysCallRet == nullptr) {
+    throw std::system_error{errno, std::generic_category()};
+  }
+  return sysCallRet;
 }
 
 }  // namespace see::utils
