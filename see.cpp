@@ -1,7 +1,7 @@
 /**
  * @file see.cpp
  * @author Heache Bear (mrbeardad@qq.com)
- * @brief A command line tool to search markdown note and print it with
+ * @brief A command line tool to highlight markdown text with ANSI escape sequence
  * @version 3.1
  * @date 2022-04-07
  *
@@ -29,13 +29,10 @@ auto main(int argc, char* argv[]) -> int {
   see::utils::CmdArgs cmd_args{};
   std::string text{};
 
-  // If stdin is redirected to tty, ignore command arguments
-  // and highlight the markdown text from stdin
+  // If stdin is not tty, treat it as markdown text.
   if (::isatty(STDIN_FILENO) != 1) {
+    // In order to get option -p
     cmd_args = see::utils::ParseCommandArgs(argc, argv, true);
-    cmd_args.files.clear();
-    cmd_args.regexes.clear();
-    cmd_args.return_status = see::utils::kParseSuccess;
     text.assign(std::istreambuf_iterator<char>{std::cin}, std::istreambuf_iterator<char>{});
   } else {
     cmd_args = see::utils::ParseCommandArgs(argc, argv);
@@ -52,7 +49,7 @@ auto main(int argc, char* argv[]) -> int {
 
   using see::utils::HandleSyscall;
 
-  if (!cmd_args.disable_pager && (HandleSyscall(::isatty(STDOUT_FILENO)) != 0)) {
+  if (!cmd_args.disable_pager && (HandleSyscall(::isatty(STDOUT_FILENO)) == 1)) {
     int output_row{1};
     int output_col{};
     size_t idx{};

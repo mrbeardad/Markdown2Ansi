@@ -17,10 +17,14 @@ enum CmdParseStatus {
 
 struct CmdArgs {
   std::vector<std::filesystem::path>
-      files;  ///< User specified files. By default search for all files in cheat directory.
-  std::vector<std::string> regexes;  ///< User specified regex expression to match entries.
-  bool disable_pager;  ///< Disable pager. Launch pager when output is too more by default.
-  CmdParseStatus return_status;  ///< Parsing result
+      files;  ///< Files to search entries. By default search for all files in ~/.cheat directory,
+              ///< you can specify environment variable SEE_CHEAT_DIR to change the default search
+              ///< dirctory.
+  std::vector<std::string>
+      regexes;  ///< User specified regex expression to match entries. Give at least one regex.
+  bool disable_pager;  ///< Disable pager. Launch pager when output is too long or too wide by
+                       ///< default.
+  CmdParseStatus return_status;  ///< Parsing status.
 };
 
 /**
@@ -28,8 +32,8 @@ struct CmdArgs {
  *
  * @param argc The first argument delivered to main()
  * @param argv The second argument delivered to main()
- * @param silent Disable output. Print error message when get wrong by default.
- * @return CmdArgs {files, regexes, disable_pager, return_status}
+ * @param silent Disable output. Print error message when get error by default.
+ * @return CmdArgs {files, regexes, disable_pager, return_status}.
  */
 auto ParseCommandArgs(int argc, char** argv, bool silent = false) -> CmdArgs;
 

@@ -8,6 +8,9 @@ namespace see::utils {
 
 using WinSize = ::winsize;
 
+#define SEE_DEFAULT_WIN_HEIGHT 30
+#define SEE_DEFAULT_WIN_WIDTH  80
+
 auto GetTtyWinSize() -> WinSize;
 
 auto DisplayWidth(const std::string& input) -> int;

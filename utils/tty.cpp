@@ -14,7 +14,11 @@ auto GetTtyWinSize() -> WinSize {
   static bool kIsInited{false};
 
   if (!kIsInited) {
-    ::ioctl(STDOUT_FILENO, TIOCGWINSZ, &kWinSize);
+    kIsInited = true;
+    if (::ioctl(STDOUT_FILENO, TIOCGWINSZ, &kWinSize) < 0) {
+      kWinSize.ws_row = SEE_DEFAULT_WIN_HEIGHT;
+      kWinSize.ws_col = SEE_DEFAULT_WIN_WIDTH;
+    }
   }
 
   return kWinSize;

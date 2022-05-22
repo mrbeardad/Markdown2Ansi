@@ -78,9 +78,6 @@ auto GetCheatDir() -> std::filesystem::path {
 
 auto ParseCommandArgs(int argc, char** argv, bool silent) -> CmdArgs {
   CmdArgs cmd_args{};
-  auto& files = cmd_args.files;
-  auto& regexes = cmd_args.regexes;
-  auto& status = cmd_args.return_status;
   std::vector<std::string> file_prefixes{};
 
   for (;;) {
@@ -93,7 +90,7 @@ auto ParseCommandArgs(int argc, char** argv, bool silent) -> CmdArgs {
     switch (choice) {
       case 'h':
         PrintErrorInformation(kHelpOption, silent);
-        status = kHelpOption;
+        cmd_args.return_status = kHelpOption;
         return cmd_args;
       case 'p':
         cmd_args.disable_pager = true;
@@ -103,7 +100,7 @@ auto ParseCommandArgs(int argc, char** argv, bool silent) -> CmdArgs {
         break;
       case '?':
         PrintErrorInformation(kParseError, silent);
-        status = kParseError;
+        cmd_args.return_status = kParseError;
         return cmd_args;
       default:
         break;
@@ -111,13 +108,12 @@ auto ParseCommandArgs(int argc, char** argv, bool silent) -> CmdArgs {
   }
 
   while (::optind < argc) {
-    regexes.emplace_back(argv[::optind++]);
+    cmd_args.regexes.emplace_back(argv[::optind++]);
   }
 
-  if (regexes.empty()) {
+  if (cmd_args.regexes.empty()) {
     PrintErrorInformation(kParseError, silent, "At least one regex word to search for entries.");
-    status = kParseError;
-    return cmd_args;
+    cmd_args.return_status = kParseError;
   }
 
   auto cheat_dir = GetCheatDir();
@@ -127,12 +123,12 @@ auto ParseCommandArgs(int argc, char** argv, bool silent) -> CmdArgs {
   auto cheat_dir_entries = std::filesystem::directory_iterator{cheat_dir, dir_errcode};
   if (dir_errcode) {
     PrintErrorInformation(kFoundNoFile, silent, dir_errcode.message());
-    status = kFoundNoFile;
+    cmd_args.return_status = kFoundNoFile;
     return cmd_args;
   }
   if (file_prefixes.empty()) {
     std::copy_if(cheat_dir_entries, std::filesystem::directory_iterator{},
-                 std::back_inserter(files),
+                 std::back_inserter(cmd_args.files),
                  [](const auto& cur_file) { return cur_file.path().extension() == ".md"; });
   } else {
     for (const auto& cur_direntry : cheat_dir_entries) {
@@ -144,17 +140,16 @@ auto ParseCommandArgs(int argc, char** argv, bool silent) -> CmdArgs {
       std::string cur_filename{cur_direntry.path().filename()};
       for (auto& cur_file_prefix : file_prefixes) {
         if (cur_filename.find(cur_file_prefix) == 0) {
-          files.emplace_back(cur_direntry.path());
+          cmd_args.files.emplace_back(cur_direntry.path());
           break;
         }
       }
     }
   }
 
-  if (files.empty()) {
+  if (cmd_args.files.empty()) {
     PrintErrorInformation(kFoundNoFile, silent);
-    status = kFoundNoFile;
-    return cmd_args;
+    cmd_args.return_status = kFoundNoFile;
   }
 
   return cmd_args;
