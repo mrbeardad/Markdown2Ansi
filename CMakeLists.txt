@@ -1,8 +1,6 @@
 # Project
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.12)
 project(SeeCheatSheet VERSION 3.0)
-
-# TODO: boost and source-highlight download
 
 # Global compile options
 set(CMAKE_CXX_STANDARD 17)
@@ -62,7 +60,7 @@ target_link_libraries(see PRIVATE utils md2ansi unicode_display_width)
 add_custom_target(
   prof
   env
-  LD_PRELOAD=/usr/lib/libtcmalloc_and_profiler.so
+  LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libtcmalloc_and_profiler.so
   CPUPROFILE=prof.out
   CPUPROFILE_FREQUENCY=1000
   ./see

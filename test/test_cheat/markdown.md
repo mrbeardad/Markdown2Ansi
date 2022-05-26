@@ -1,73 +1,59 @@
 <header>markdown.md</header>
-# 一级标题
+<header></header>
+</header><header>
 
-## 二级标题
+# h1
 
-### 三级标题
+## h2
 
-#### 四级标题
+### h3
 
-##### 五级标题
+#### h4
 
-###### 六级标题
+##### h5
 
-## 段落
+###### h6
 
-&emsp;Markdown 可以看作由一系列区块元素纵向排列或嵌套而组成，区块由一些特殊元素开启和关闭(也可看作不同的区块间需要不同的连接方式)。
-段落是最主要的区块，段落区块的内容即是我们试图表达信息的文字，而其它区块展示出来的一般只是符号与格式。  
-只要不开启下述其他区块，则便属于开启段落区块。
-&lt;&gt;&copy;&reg;&vert;&yen;
+## p
 
-## 分割线
+Prospero uses magic to conjure a storm and torment the survivors of a shipwreck, including the King of Naples and Prospero’s treacherous brother, Antonio. Prospero’s slave, Caliban, plots to rid himself of his master, but is thwarted by Prospero’s spirit-servant Ariel. The King’s young son Ferdinand, thought to be dead, falls in love with Prospero’s daughter Miranda. Their celebrations are cut short when Prospero confronts his brother and reveals his identity as the usurped Duke of Milan. The families are reunited and all conflict is resolved. Prospero grants Ariel his freedom and prepares to leave the island.
+
+## hr
 
 ---
 
-## 引用
+## quote
 
-> 引用块
+> quote1
 >
-> > 引用块
+> > quote2
 > >
-> > > 引用块
+> > > quote3
 
-## 列表
+## list
 
-- 无序一
-  - 无序二
-    - 无序三
-      - 无序四
-  - 无序二
-    - 无序三
-      - 无序四
+- ul1
+  - ul2
+    - ul3
+      - ul4
+  - ul2
+    - ul3
+      - ul4
+    - ul3
+      - ul4
+      - ul4
 
-1. 有序一 1
-2. 有序一 2
-3. 有序一 3
+1. ol1
+2. ol1
+3. ol1
+   1. ol2
+      1. ol3
+         1. ol4
 
-   1. 有序二 1
-      1. 有序三 1
-         1. 有序四 1
-
-- 无序一
-
-  1. 有序二 1
-  2. 有序二 2
-     - 无序三
-
-  - 无序二
-
-  1. 有序二 1
-
-- [x] 已完成任务
-- [ ] 未完成任务
+- [x] checked task
+- [ ] unchecked task
 
 ## 代码
-
-    #include <iostream>
-    using namespace std;
-    int main() {
-        cout << "hello world!" << endl;
-    }
 
 ```c
 #include <iostream>
@@ -80,7 +66,7 @@ int main() {
 ## 公式
 
 $$
-X_aX_bX_c\\
+X_aX_bX_c
 X_a X_b X_c
 X_{ab}X_{cd}
 X_{ab} X_{cd}
@@ -92,25 +78,14 @@ $$
 
 ## 制表
 
-|         渲染结果          |            源码             |掉|
-| :-----------------------: | :-------------------------: |-|
-|         _italic_          |         `*italic*`          |1
-|         **bold**          |         `**bold**`          |2
-|     **_italic&bold_**     |     `***italic&bold***`     |3
-|        ~~delete~~         |        `~~delete~~`         |4
-| [链接名](URL "可选标题")  | `[链接名](URL "可选标题")`  |5
-| ![图片名](URL "可选标题") | `![图片名](URL "可选标题")` |6
-|          :star:           |          `:star:`           |7
-|          `code`           |        `` `code` ``         |8
-|       $L^{A}T_{e}X$       |       `$L^{A}T_{E}X$`       |9
-
-## 嵌套
-
-> 引用块中嵌套*italic*或者**bold**还有`code`包括[链接](#链接)
->
-> - 还有列表
->   - 还能嵌套
-
-- 列表里
-  > 嵌套引用
-  > 如何
+|         渲染结果          |            源码             |
+| :-----------------------: | :-------------------------: |
+|         _italic_          |         `*italic*`          |
+|         **bold**          |         `**bold**`          |
+|     **_italic&bold_**     |     `***italic&bold***`     |
+|        ~~delete~~         |        `~~delete~~`         |
+| [链接名](URL "可选标题")  | `[链接名](URL "可选标题")`  |
+| ![图片名](URL "可选标题") | `![图片名](URL "可选标题")` |
+|          :star:           |          `:star:`           |
+|          `code`           |        `` `code` ``         |
+|       $L^{A}T_{e}X$       |       `$L^{A}T_{E}X$`       |

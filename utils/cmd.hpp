@@ -28,7 +28,7 @@ struct CmdArgs {
 };
 
 /**
- * @brief Parse command line arguments
+ * @brief Parse command line arguments(non-reentrant)
  *
  * @param argc The first argument delivered to main()
  * @param argv The second argument delivered to main()
@@ -52,7 +52,7 @@ auto SearchEntries(const std::vector<std::filesystem::path>& files,
                    const std::vector<std::string>& regexes) -> std::string;
 
 /**
- * @brief Call exec to a pager program.
+ * @brief Exec a pager program.
  *
  * Default pager is /usr/bin/less. When PAGER environment variable is set, exec pager specified by
  * PAGER.

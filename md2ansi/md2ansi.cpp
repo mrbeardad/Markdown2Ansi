@@ -26,6 +26,11 @@
 
 namespace see::md2ansi {
 
+auto Md2Ansi::Instance() -> Md2Ansi& {
+  static Md2Ansi md2ansi{};
+  return md2ansi;
+}
+
 Md2Ansi::Md2Ansi()
     : block_handlers_{},
       span_handlers_{},
@@ -37,7 +42,7 @@ Md2Ansi::Md2Ansi(Md2Ansi&&) noexcept = default;
 auto Md2Ansi::operator=(Md2Ansi&&) noexcept -> Md2Ansi& = default;
 Md2Ansi::~Md2Ansi() = default;
 
-auto Md2Ansi::RegisterBlock(std::unique_ptr<BlockHandler> block_handler) -> bool {
+auto Md2Ansi::Register(std::unique_ptr<BlockHandler> block_handler) -> bool {
   auto& target = block_handlers_.at(block_handler->GetType());
   if (target != nullptr) {
     return false;
@@ -46,7 +51,7 @@ auto Md2Ansi::RegisterBlock(std::unique_ptr<BlockHandler> block_handler) -> bool
   return true;
 }
 
-auto Md2Ansi::RegisterSpan(std::unique_ptr<SpanHandler> span_handler) -> bool {
+auto Md2Ansi::Register(std::unique_ptr<SpanHandler> span_handler) -> bool {
   auto& target = span_handlers_.at(span_handler->GetType());
   if (target != nullptr) {
     return false;
@@ -55,7 +60,7 @@ auto Md2Ansi::RegisterSpan(std::unique_ptr<SpanHandler> span_handler) -> bool {
   return true;
 }
 
-auto Md2Ansi::RegisterText(std::unique_ptr<TextHandler> text_handler) -> bool {
+auto Md2Ansi::Register(std::unique_ptr<TextHandler> text_handler) -> bool {
   auto& target = text_handlers_.at(text_handler->GetType());
   if (target != nullptr) {
     return false;
@@ -70,7 +75,7 @@ auto Md2Ansi::EnterBlock(MD_BLOCKTYPE type, void* detail) -> int {
     return 0;
   }
   context_.emplace_back(handler->GetStyle());
-  // The width of the block element is the same as the parent element,
+  // the width of the block element is the same as the parent element,
   // add newline at block start when text already exists in current line
   // and is not block header.
   if (pos_ == kInner) {
@@ -92,7 +97,7 @@ auto Md2Ansi::LeaveBlock(MD_BLOCKTYPE type, void* detail) -> int {
   for (const auto& style : context_) {
     text_ += style;
   }
-  // The child element is in the same box as its parent.
+  // the child element is in the same box as its parent.
   if (pos_ != kEnd) {
     text_ += '\n';
   }
@@ -136,38 +141,33 @@ auto Md2Ansi::TextHandle(MD_TEXTTYPE type, const MD_CHAR* raw, MD_SIZE len) -> i
 
 namespace {
 
-// NOLINTNEXTLINE: Compatible with md4c
+// NOLINTNEXTLINE: compatible with md4c
 const auto kMd4cFlags = MD_FLAG_COLLAPSEWHITESPACE | MD_FLAG_TABLES | MD_FLAG_STRIKETHROUGH
                         | MD_FLAG_TASKLISTS | MD_FLAG_LATEXMATHSPANS;
 
-// NOLINTNEXTLINE: Compatible with md4c
-Md2Ansi* kMd2Ansi{};
-
 auto Md4cEnterBlock(MD_BLOCKTYPE type, void* detail, void* /*userdata*/) -> int {
-  return kMd2Ansi->EnterBlock(type, detail);
+  return Md2Ansi::Instance().EnterBlock(type, detail);
 }
 
 auto Md4cLeaveBlock(MD_BLOCKTYPE type, void* detail, void* /*userdata*/) -> int {
-  return kMd2Ansi->LeaveBlock(type, detail);
+  return Md2Ansi::Instance().LeaveBlock(type, detail);
 }
 
 auto Md4cEnterSpan(MD_SPANTYPE type, void* detail, void* /*userdata*/) -> int {
-  return kMd2Ansi->EnterSpan(type, detail);
+  return Md2Ansi::Instance().EnterSpan(type, detail);
 }
 
 auto Md4cLeaveSpan(MD_SPANTYPE type, void* detail, void* /*userdata*/) -> int {
-  return kMd2Ansi->LeaveSpan(type, detail);
+  return Md2Ansi::Instance().LeaveSpan(type, detail);
 }
 
 auto Md4cTextHandle(MD_TEXTTYPE type, const MD_CHAR* raw, MD_SIZE len, void* /*userdata*/) -> int {
-  return kMd2Ansi->TextHandle(type, raw, len);
+  return Md2Ansi::Instance().TextHandle(type, raw, len);
 }
 
 };  // namespace
 
-auto Md2Ansi::operator()(const std::string& raw_text) -> std::string {
-  kMd2Ansi = this;
-
+auto Md2Ansi::Highlight(const std::string& raw_text) -> std::string {
   MD_PARSER parser{};
   parser.flags = kMd4cFlags;
   parser.enter_block = Md4cEnterBlock;
@@ -185,41 +185,39 @@ auto Md2Ansi::operator()(const std::string& raw_text) -> std::string {
   return ret;
 }
 
-auto MakeDefaultMd2Ansi() -> Md2Ansi {
-  Md2Ansi md2ansi{};
+auto SetupMd2Ansi() -> Md2Ansi& {
+  Md2Ansi::Instance().Register(std::make_unique<CodeBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<HBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<HrBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<UlBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<OlBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<LiBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<PBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<QuoteBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<TableBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<TheadBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<TbodyBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<TrBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<ThBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<TdBlock>());
 
-  md2ansi.RegisterBlock(std::make_unique<CodeBlock>());
-  md2ansi.RegisterBlock(std::make_unique<HBlock>());
-  md2ansi.RegisterBlock(std::make_unique<HrBlock>());
-  md2ansi.RegisterBlock(std::make_unique<UlBlock>());
-  md2ansi.RegisterBlock(std::make_unique<OlBlock>());
-  md2ansi.RegisterBlock(std::make_unique<LiBlock>());
-  md2ansi.RegisterBlock(std::make_unique<PBlock>());
-  md2ansi.RegisterBlock(std::make_unique<QuoteBlock>());
-  md2ansi.RegisterBlock(std::make_unique<TableBlock>());
-  md2ansi.RegisterBlock(std::make_unique<TheadBlock>());
-  md2ansi.RegisterBlock(std::make_unique<TbodyBlock>());
-  md2ansi.RegisterBlock(std::make_unique<TrBlock>());
-  md2ansi.RegisterBlock(std::make_unique<ThBlock>());
-  md2ansi.RegisterBlock(std::make_unique<TdBlock>());
+  Md2Ansi::Instance().Register(std::make_unique<ASpan>());
+  Md2Ansi::Instance().Register(std::make_unique<CodeSpan>());
+  Md2Ansi::Instance().Register(std::make_unique<DelSpan>());
+  Md2Ansi::Instance().Register(std::make_unique<EmSpan>());
+  Md2Ansi::Instance().Register(std::make_unique<ImgSpan>());
+  Md2Ansi::Instance().Register(std::make_unique<LatexSpan>());
+  Md2Ansi::Instance().Register(std::make_unique<LatexDisplaySpan>());
+  Md2Ansi::Instance().Register(std::make_unique<StrongSpan>());
+  Md2Ansi::Instance().Register(std::make_unique<USpan>());
 
-  md2ansi.RegisterSpan(std::make_unique<ASpan>());
-  md2ansi.RegisterSpan(std::make_unique<CodeSpan>());
-  md2ansi.RegisterSpan(std::make_unique<DelSpan>());
-  md2ansi.RegisterSpan(std::make_unique<EmSpan>());
-  md2ansi.RegisterSpan(std::make_unique<ImgSpan>());
-  md2ansi.RegisterSpan(std::make_unique<LatexSpan>());
-  md2ansi.RegisterSpan(std::make_unique<LatexDisplaySpan>());
-  md2ansi.RegisterSpan(std::make_unique<StrongSpan>());
-  md2ansi.RegisterSpan(std::make_unique<USpan>());
+  Md2Ansi::Instance().Register(std::make_unique<NormalText>());
+  Md2Ansi::Instance().Register(std::make_unique<CodeText>());
+  Md2Ansi::Instance().Register(std::make_unique<EntityText>());
+  Md2Ansi::Instance().Register(std::make_unique<HtmlText>());
+  Md2Ansi::Instance().Register(std::make_unique<LatexText>());
 
-  md2ansi.RegisterText(std::make_unique<NormalText>());
-  md2ansi.RegisterText(std::make_unique<CodeText>());
-  md2ansi.RegisterText(std::make_unique<EntityText>());
-  md2ansi.RegisterText(std::make_unique<HtmlText>());
-  md2ansi.RegisterText(std::make_unique<LatexText>());
-
-  return md2ansi;
+  return Md2Ansi::Instance();
 }
 
 }  // namespace see::md2ansi

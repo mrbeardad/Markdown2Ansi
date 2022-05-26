@@ -45,6 +45,7 @@ auto HtmlText::HandleText(std::string& text, const MD_CHAR* raw_text, MD_SIZE le
     std::string filename{text.substr(kFilenameStartPos)};
     text.erase(kFilenameStartPos);
     text += HighlightFilename(filename);
+    text += '\n';
     kFilenameStartPos = -1;
   }
 }

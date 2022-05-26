@@ -18,6 +18,7 @@
 #include <string>
 #include <system_error>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "boost/algorithm/string/predicate.hpp"
@@ -34,10 +35,10 @@ Usage:
     see [-p] [-f <file-prefix>] <regex-words>...
     cat text.md | see
 
-Search cheat sheet in ~/.cheat/*.md, each entry starts with '<!-- entry begin: keywords -->'
-and ends with '<!-- entry end -->', <regex-words> in command line will match keywords,
-and then print them with highlight. If see read from pipe, it will highlight the text read
-from pipe instead of entries searching in cheat sheets.
+Search cheat sheet in ~/.cheat/*.md, each entry starts with '<!-- entry begin: keywords -->' and
+ends with '<!-- entry end -->', <regex-words> in command line will match keywords, and then print
+them with highlight. If see read from pipe, it will highlight the text read from pipe instead of
+entries searching in cheat sheets. You can specify cheat directory by set environment variable SEE_CHEAT_DIR
 
 Options:
     -h                  = Print this help information
@@ -184,6 +185,7 @@ auto SearchEntries(const std::vector<std::filesystem::path>& files,
       if (!is_in_entry && boost::starts_with(oneline, kEntryBeginPrefix)
           && boost::ends_with(oneline, kEntryBeginSuffix)) {
         // catch entry begin
+
         auto is_match
             = std::all_of(regexes.begin(), regexes.end(), [&oneline](const auto& cur_regex) {
                 return std::regex_search(
@@ -198,6 +200,7 @@ auto SearchEntries(const std::vector<std::filesystem::path>& files,
         }
       } else if (is_in_entry) {
         // catch entry content or entry end
+
         if (oneline != kEntryEnd) {
           entries_in_cur_file << oneline << '\n';
         } else {
@@ -207,7 +210,7 @@ auto SearchEntries(const std::vector<std::filesystem::path>& files,
       }
     }
     if (!entries_in_cur_file.empty()) {
-      entries << FileNameTag(cur_file) << entries_in_cur_file;
+      entries << FileNameTag(cur_file) << std::move(entries_in_cur_file);
     }
     entries_in_cur_file.clear();
   }

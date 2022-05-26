@@ -29,9 +29,10 @@ auto main(int argc, char* argv[]) -> int {
   see::utils::CmdArgs cmd_args{};
   std::string text{};
 
-  // If stdin is not tty, treat it as markdown text.
+  // if stdin is not tty, then treat it as markdown text and highlight it, else search entries and
+  // highlight them
   if (::isatty(STDIN_FILENO) != 1) {
-    // In order to get option -p
+    // get option -p
     cmd_args = see::utils::ParseCommandArgs(argc, argv, true);
     text.assign(std::istreambuf_iterator<char>{std::cin}, std::istreambuf_iterator<char>{});
   } else {
@@ -45,7 +46,7 @@ auto main(int argc, char* argv[]) -> int {
     text = see::utils::SearchEntries(cmd_args.files, cmd_args.regexes);
   }
 
-  text = see::md2ansi::MakeDefaultMd2Ansi()(text);
+  text = see::md2ansi::SetupMd2Ansi().Highlight(text);
 
   using see::utils::HandleSyscall;
 
@@ -68,14 +69,14 @@ auto main(int argc, char* argv[]) -> int {
       HandleSyscall(::pipe(fds.data()));
 
       if (auto pid = HandleSyscall(::fork()); pid == 0) {
-        // Child process
+        // child process
         HandleSyscall(::dup2(fds[0], STDIN_FILENO));
-        // Close copy of the pipe fd
+        // close copy of the pipe fd
         HandleSyscall(::close(fds[0]));
         HandleSyscall(::close(fds[1]));
         HandleSyscall(see::utils::ExecPager());
       } else {
-        // Parent process
+        // parent process
         HandleSyscall(::dup2(fds[1], STDOUT_FILENO));
         // close copy of the pipe fd
         HandleSyscall(::close(fds[0]));
@@ -86,9 +87,9 @@ auto main(int argc, char* argv[]) -> int {
 
   std::cout << text << std::endl;
 
-  // Close the write end of pipe, trigger SIGPIPE
+  // close the write end of pipe, trigger SIGPIPE
   HandleSyscall(::close(STDOUT_FILENO));
-  // It is ok to emit the return value
+  // it is ok to emit the return value
   ::wait(nullptr);
 
   return 0;

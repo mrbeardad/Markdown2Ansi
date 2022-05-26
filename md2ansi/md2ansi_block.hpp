@@ -8,7 +8,6 @@
 
 namespace see::md2ansi {
 
-// TODO: Add a interface GetOtherBlock()
 class BlockHandler {
  public:
   explicit BlockHandler(MD_BLOCKTYPE type, std::string style)

@@ -26,7 +26,6 @@ auto UlBlock::BlockEnd(std::string& /* text */, void* /* detail */) -> void {
   --kListItemLevel;
 }
 
-// BUG: indent and number
 OlBlock::OlBlock() : BlockHandler{MD_BLOCK_OL, ""} {}
 
 auto OlBlock::BlockStart(std::string& /* text */, void* /* detail */) -> void {

@@ -5,6 +5,12 @@
 
 namespace see::utils {
 
+/**
+ * @brief Make text with rainbow foreground and background color
+ *
+ * @param text input text
+ * @return std::string rainbow text
+ */
 auto RainbowText(const std::string& text) -> std::string;
 
 }  // namespace see::utils
